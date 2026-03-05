@@ -1,14 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resume Editor — Browser-Native Rich Text Editor</title>
-  <meta name="description" content="A zero-dependency, browser-native rich text editor for creating and exporting professional resumes as PDF. No server, no login, no install.">
+  <meta name="description"
+    content="A zero-dependency, browser-native rich text editor for creating and exporting professional resumes as PDF. No server, no login, no install.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/super-build/ckeditor.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turndown/7.1.3/turndown.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js" defer></script>
+  <script src="https://unpkg.com/turndown-plugin-gfm/dist/turndown-plugin-gfm.js" defer></script>
   <style>
     /* === Design Tokens === */
     :root {
@@ -23,12 +37,18 @@
       --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
       --font-canvas: Georgia, 'Times New Roman', serif;
       --radius: 5px;
-      --shadow: 0 8px 40px rgba(0,0,0,0.18);
+      --shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
       --toolbar-height: 56px;
     }
 
     /* === Reset & Base === */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     html {
       scroll-behavior: smooth;
@@ -51,13 +71,13 @@
       z-index: 100;
       width: 100%;
       background: var(--dark);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       display: flex;
       align-items: center;
       padding: 8px 20px;
       gap: 6px;
       flex-wrap: wrap;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
       backdrop-filter: blur(12px);
       min-height: var(--toolbar-height);
     }
@@ -72,13 +92,16 @@
       padding-right: 6px;
       user-select: none;
     }
-    .toolbar-logo span { color: var(--accent); }
+
+    .toolbar-logo span {
+      color: var(--accent);
+    }
 
     /* Divider */
     .toolbar-divider {
       width: 1px;
       height: 28px;
-      background: rgba(255,255,255,0.12);
+      background: rgba(255, 255, 255, 0.12);
       margin: 0 4px;
       flex-shrink: 0;
     }
@@ -109,18 +132,40 @@
       transition: all 0.15s ease;
       position: relative;
     }
-    .tb-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .tb-btn:active { transform: scale(0.93); }
-    .tb-btn.active { background: var(--accent); color: #fff; }
-    .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .tb-btn svg { width: 16px; height: 16px; fill: currentColor; pointer-events: none; }
+
+    .tb-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .tb-btn:active {
+      transform: scale(0.93);
+    }
+
+    .tb-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .tb-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .tb-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      pointer-events: none;
+    }
 
     /* Selects & inputs */
-    .tb-select, .tb-input {
+    .tb-select,
+    .tb-input {
       height: 34px;
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: var(--radius);
-      background: rgba(255,255,255,0.06);
+      background: rgba(255, 255, 255, 0.06);
       color: #ddd;
       font-family: var(--font-ui);
       font-size: 12px;
@@ -128,12 +173,31 @@
       cursor: pointer;
       transition: border-color 0.15s ease;
     }
-    .tb-select:hover, .tb-input:hover { border-color: rgba(255,255,255,0.2); }
-    .tb-select:focus, .tb-input:focus { border-color: var(--accent); outline: none; }
-    .tb-select option { background: var(--dark); color: #ddd; }
 
-    #fontFamily { width: 130px; }
-    #fontSize { width: 56px; text-align: center; }
+    .tb-select:hover,
+    .tb-input:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .tb-select:focus,
+    .tb-input:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .tb-select option {
+      background: var(--dark);
+      color: #ddd;
+    }
+
+    #fontFamily {
+      width: 130px;
+    }
+
+    #fontSize {
+      width: 56px;
+      text-align: center;
+    }
 
     /* Color picker wrapper */
     .color-wrapper {
@@ -141,6 +205,7 @@
       width: 34px;
       height: 34px;
     }
+
     .color-wrapper input[type="color"] {
       position: absolute;
       inset: 0;
@@ -150,6 +215,7 @@
       cursor: pointer;
       border: none;
     }
+
     .color-swatch {
       width: 34px;
       height: 34px;
@@ -162,8 +228,18 @@
       pointer-events: none;
       transition: all 0.15s;
     }
-    .color-wrapper:hover .color-swatch { background: rgba(255,255,255,0.08); color: #fff; }
-    .color-swatch svg { width: 16px; height: 16px; fill: currentColor; }
+
+    .color-wrapper:hover .color-swatch {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .color-swatch svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
     .color-swatch .underline-bar {
       position: absolute;
       bottom: 5px;
@@ -175,7 +251,10 @@
     }
 
     /* Spacer */
-    .toolbar-spacer { flex: 1; min-width: 10px; }
+    .toolbar-spacer {
+      flex: 1;
+      min-width: 10px;
+    }
 
     /* Word count */
     .word-count {
@@ -202,9 +281,21 @@
       white-space: nowrap;
       letter-spacing: 0.3px;
     }
-    #exportBtn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(192,57,43,0.4); }
-    #exportBtn:active { transform: translateY(0) scale(0.97); }
-    #exportBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+    #exportBtn:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(192, 57, 43, 0.4);
+    }
+
+    #exportBtn:active {
+      transform: translateY(0) scale(0.97);
+    }
+
+    #exportBtn:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
 
     /* === Canvas === */
     #canvas-wrapper {
@@ -233,9 +324,11 @@
       overflow-wrap: break-word;
       transition: box-shadow 0.2s ease;
     }
+
     #canvas:focus {
       box-shadow: var(--shadow), 0 0 0 2px var(--accent);
     }
+
     #canvas:empty::before {
       content: 'Start writing your resume here...';
       color: #999;
@@ -244,10 +337,27 @@
     }
 
     /* Canvas typography defaults */
-    #canvas h1, #canvas h2, #canvas h3 { color: var(--ink); margin-bottom: 0.3em; }
-    #canvas ul, #canvas ol { padding-left: 24px; }
-    #canvas li { margin-bottom: 2px; }
-    #canvas hr { border: none; border-top: 1.5px solid #ccc; margin: 16px 0; }
+    #canvas h1,
+    #canvas h2,
+    #canvas h3 {
+      color: var(--ink);
+      margin-bottom: 0.3em;
+    }
+
+    #canvas ul,
+    #canvas ol {
+      padding-left: 24px;
+    }
+
+    #canvas li {
+      margin-bottom: 2px;
+    }
+
+    #canvas hr {
+      border: none;
+      border-top: 1.5px solid #ccc;
+      margin: 16px 0;
+    }
 
     /* === Status Bar === */
     #statusbar {
@@ -262,16 +372,41 @@
       user-select: none;
       gap: 12px;
     }
-    .status-left { display: flex; gap: 16px; }
-    .status-right { display: flex; gap: 12px; align-items: center; }
-    .save-indicator { transition: opacity 0.3s; }
-    .save-indicator.saved { color: #27ae60; }
+
+    .status-left {
+      display: flex;
+      gap: 16px;
+    }
+
+    .status-right {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .save-indicator {
+      transition: opacity 0.3s;
+    }
+
+    .save-indicator.saved {
+      color: #27ae60;
+    }
 
     /* === Print Styles === */
     @media print {
-      body { background: #fff; }
-      #toolbar, #statusbar { display: none !important; }
-      #canvas-wrapper { padding: 0; }
+      body {
+        background: #fff;
+      }
+
+      #toolbar,
+      #statusbar {
+        display: none !important;
+      }
+
+      #canvas-wrapper {
+        padding: 0;
+      }
+
       #canvas {
         max-width: 100%;
         box-shadow: none;
@@ -287,19 +422,42 @@
         padding: 6px 12px;
         gap: 4px;
       }
-      .toolbar-logo { font-size: 14px; }
-      #fontFamily { width: 100px; }
-      #canvas { padding: 40px 30px 60px; }
+
+      .toolbar-logo {
+        font-size: 14px;
+      }
+
+      #fontFamily {
+        width: 100px;
+      }
+
+      #canvas {
+        padding: 40px 30px 60px;
+      }
     }
 
     @media (max-width: 600px) {
       .mobile-warning {
         display: block !important;
       }
-      #toolbar { gap: 3px; padding: 6px 8px; }
-      .toolbar-divider { display: none; }
-      #fontFamily { width: 80px; }
-      #canvas { padding: 24px 18px 40px; font-size: 11pt; }
+
+      #toolbar {
+        gap: 3px;
+        padding: 6px 8px;
+      }
+
+      .toolbar-divider {
+        display: none;
+      }
+
+      #fontFamily {
+        width: 80px;
+      }
+
+      #canvas {
+        padding: 24px 18px 40px;
+        font-size: 11pt;
+      }
     }
 
     .mobile-warning {
@@ -327,17 +485,532 @@
       white-space: nowrap;
       pointer-events: none;
       z-index: 200;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     /* Subtle animation on page load */
     @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-    #canvas { animation: fadeInUp 0.5s ease-out; }
+
+    #canvas {
+      animation: fadeInUp 0.5s ease-out;
+    }
+
+    /* === Converter Modal === */
+    .converter-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .converter-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .converter-panel {
+      background: var(--dark);
+      border-radius: 12px;
+      width: 95%;
+      max-width: 580px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      animation: fadeInUp 0.3s ease-out;
+      overflow: hidden;
+    }
+
+    .converter-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .converter-header h2 {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .converter-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #999;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .converter-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .converter-body {
+      padding: 20px;
+    }
+
+    .drop-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.03);
+      transition: all 0.2s;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(192, 57, 43, 0.06);
+    }
+
+    .drop-zone-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    .drop-zone-text {
+      color: #aaa;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .drop-zone-hint {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .drop-zone input[type="file"] {
+      display: none;
+    }
+
+    .converter-file-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .converter-file-info .file-icon {
+      font-size: 22px;
+    }
+
+    .converter-file-info .file-name {
+      color: #ddd;
+      font-size: 13px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .converter-file-info .file-size {
+      color: #888;
+      font-size: 11px;
+    }
+
+    .format-badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+      text-transform: uppercase;
+    }
+
+    .converter-file-info .remove-file {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .converter-file-info .remove-file:hover {
+      color: #fff;
+    }
+
+    .converter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .converter-row label {
+      color: #aaa;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .converter-row select {
+      flex: 1;
+      min-width: 120px;
+      height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #ddd;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      padding: 0 10px;
+      cursor: pointer;
+    }
+
+    .converter-row select option {
+      background: var(--dark);
+    }
+
+    .converter-row .arrow-icon {
+      color: #666;
+      font-size: 18px;
+    }
+
+    .fidelity-warning {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 16px;
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    .fidelity-warning.yellow {
+      background: rgba(243, 156, 18, 0.12);
+      border-left: 3px solid #F39C12;
+      color: #F39C12;
+    }
+
+    .fidelity-warning.blue {
+      background: rgba(52, 152, 219, 0.12);
+      border-left: 3px solid #3498DB;
+      color: #3498DB;
+    }
+
+    .fidelity-warning.visible {
+      display: flex;
+    }
+
+    .converter-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .converter-btn {
+      height: 40px;
+      padding: 0 20px;
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .converter-btn.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .converter-btn.primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(192, 57, 43, 0.4);
+    }
+
+    .converter-btn.primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .converter-btn.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ccc;
+    }
+
+    .converter-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    .converter-status {
+      text-align: center;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .converter-status.success {
+      display: block;
+      background: rgba(39, 174, 96, 0.12);
+      border-left: 3px solid #27AE60;
+      color: #27AE60;
+    }
+
+    .converter-status.error {
+      display: block;
+      background: rgba(231, 76, 60, 0.12);
+      border-left: 3px solid #E74C3C;
+      color: #E74C3C;
+    }
+
+    .converter-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .history-section {
+      margin-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 12px;
+    }
+
+    .history-section h3 {
+      color: #888;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .history-list {
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: #aaa;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .history-item .h-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-item .h-route {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .history-item .h-time {
+      color: #666;
+    }
+
+    /* === CKEditor 5 Dark Theme Overrides === */
+    .ck.ck-editor {
+      width: 100%;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .ck.ck-editor__top .ck-sticky-panel .ck-toolbar {
+      background: var(--dark) !important;
+      border-color: rgba(255, 255, 255, 0.06) !important;
+      border-radius: 0 !important;
+      padding: 4px 8px !important;
+    }
+
+    .ck.ck-toolbar .ck-toolbar__items .ck-button,
+    .ck.ck-toolbar .ck-toolbar__items .ck-dropdown__button {
+      color: var(--muted) !important;
+      border-radius: var(--radius) !important;
+    }
+
+    .ck.ck-toolbar .ck-button:hover,
+    .ck.ck-toolbar .ck-dropdown__button:hover {
+      background: rgba(255, 255, 255, 0.08) !important;
+      color: #fff !important;
+    }
+
+    .ck.ck-toolbar .ck-button.ck-on,
+    .ck.ck-toolbar .ck-dropdown__button.ck-on {
+      background: var(--accent) !important;
+      color: #fff !important;
+    }
+
+    .ck.ck-toolbar .ck-toolbar__separator {
+      background: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    .ck.ck-dropdown__panel {
+      background: var(--dark-lighter) !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .ck.ck-list {
+      background: var(--dark-lighter) !important;
+    }
+
+    .ck.ck-list__item .ck-button {
+      color: #ccc !important;
+    }
+
+    .ck.ck-list__item .ck-button:hover {
+      background: rgba(255, 255, 255, 0.08) !important;
+      color: #fff !important;
+    }
+
+    .ck.ck-list__item .ck-button.ck-on {
+      background: var(--accent) !important;
+      color: #fff !important;
+    }
+
+    .ck-rounded-corners .ck.ck-dropdown__panel {
+      border-radius: 6px !important;
+    }
+
+    .ck.ck-editor__editable_inline {
+      background: var(--paper) !important;
+      color: var(--ink) !important;
+      font-family: var(--font-canvas) !important;
+      font-size: 12pt !important;
+      line-height: 1.6 !important;
+      min-height: calc(100vh - 200px) !important;
+      padding: 60px 60px 80px !important;
+      border-radius: 0 0 4px 4px !important;
+      box-shadow: var(--shadow) !important;
+      border: none !important;
+      outline: none !important;
+    }
+
+    .ck.ck-editor__editable_inline:focus {
+      box-shadow: var(--shadow), 0 0 0 2px var(--accent) !important;
+    }
+
+    .ck.ck-editor__editable_inline h1,
+    .ck.ck-editor__editable_inline h2,
+    .ck.ck-editor__editable_inline h3 {
+      color: var(--ink);
+      margin-bottom: 0.3em;
+    }
+
+    .ck.ck-editor__editable_inline ul,
+    .ck.ck-editor__editable_inline ol {
+      padding-left: 24px;
+    }
+
+    .ck.ck-editor__editable_inline hr {
+      border: none;
+      border-top: 1.5px solid #ccc;
+      margin: 16px 0;
+    }
+
+    .ck.ck-input {
+      background: var(--dark-lighter) !important;
+      color: #ddd !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+    }
+
+    .ck.ck-labeled-field-view__status {
+      color: #888 !important;
+    }
+
+    .ck.ck-button__label {
+      color: inherit !important;
+    }
+
+    /* Header bar */
+    #header-bar {
+      width: 100%;
+      background: var(--dark);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      padding: 8px 20px;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+      position: sticky;
+      top: 0;
+    }
+
+    #header-bar .toolbar-logo {
+      font-weight: 700;
+      font-size: 16px;
+      color: #fff;
+      letter-spacing: -0.5px;
+      user-select: none;
+    }
+
+    #header-bar .toolbar-logo span {
+      color: var(--accent);
+    }
+
+    #header-bar .header-spacer {
+      flex: 1;
+    }
   </style>
 </head>
+
 <body>
 
   <!-- Mobile Warning -->
@@ -345,138 +1018,72 @@
     ⚠ This editor is optimised for desktop. Some toolbar features may be limited on small screens.
   </div>
 
-  <!-- ===== TOOLBAR ===== -->
-  <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
-
-    <!-- Logo -->
+  <!-- ===== HEADER BAR ===== -->
+  <div id="header-bar">
     <div class="toolbar-logo">Resume<span>Editor</span></div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Font Group -->
-    <div class="toolbar-group">
-      <select id="fontFamily" class="tb-select" title="Font Family" aria-label="Font Family">
-        <option value="Georgia">Georgia</option>
-        <option value="Times New Roman">Times New Roman</option>
-        <option value="Garamond">Garamond</option>
-        <option value="Palatino Linotype">Palatino</option>
-        <option value="Arial">Arial</option>
-        <option value="Helvetica">Helvetica</option>
-        <option value="Calibri">Calibri</option>
-        <option value="Verdana">Verdana</option>
-        <option value="Trebuchet MS">Trebuchet MS</option>
-        <option value="Tahoma">Tahoma</option>
-        <option value="Courier New">Courier New</option>
-        <option value="DM Sans">DM Sans</option>
-      </select>
-      <input type="number" id="fontSize" class="tb-input" value="12" min="8" max="72" step="1" title="Font Size (pt)" aria-label="Font Size">
-    </div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Style Group -->
-    <div class="toolbar-group">
-      <button class="tb-btn" id="btnBold" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
-      </button>
-      <button class="tb-btn" id="btnItalic" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
-      </button>
-      <button class="tb-btn" id="btnUnderline" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
-      </button>
-      <button class="tb-btn" id="btnStrike" data-cmd="strikeThrough" title="Strikethrough" aria-label="Strikethrough" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/></svg>
-      </button>
-    </div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Colour -->
-    <div class="toolbar-group">
-      <div class="color-wrapper" title="Text Colour">
-        <div class="color-swatch" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M11 2 5.5 16h2.25l1.12-3h6.25l1.12 3h2.25L13 2h-2zm-1.38 9L12 4.67 14.38 11H9.62z"/></svg>
-          <div class="underline-bar" id="colorBar"></div>
-        </div>
-        <input type="color" id="textColor" value="#333333" aria-label="Text Colour">
-      </div>
-    </div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Alignment Group -->
-    <div class="toolbar-group">
-      <button class="tb-btn" data-cmd="justifyLeft" title="Align Left" aria-label="Align Left">
-        <svg viewBox="0 0 24 24"><path d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="justifyCenter" title="Align Centre" aria-label="Align Centre">
-        <svg viewBox="0 0 24 24"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="justifyRight" title="Align Right" aria-label="Align Right">
-        <svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="justifyFull" title="Justify" aria-label="Justify">
-        <svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z"/></svg>
-      </button>
-    </div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Lists & Indent -->
-    <div class="toolbar-group">
-      <button class="tb-btn" data-cmd="insertUnorderedList" title="Bullet List" aria-label="Bullet List" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="insertOrderedList" title="Numbered List" aria-label="Numbered List" aria-pressed="false">
-        <svg viewBox="0 0 24 24"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="indent" title="Increase Indent" aria-label="Increase Indent">
-        <svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="outdent" title="Decrease Indent" aria-label="Decrease Indent">
-        <svg viewBox="0 0 24 24"><path d="M11 17h10v-2H11v2zm-8-5 4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"/></svg>
-      </button>
-    </div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Spacing -->
-    <div class="toolbar-group">
-      <select id="lineSpacing" class="tb-select" title="Line Spacing" aria-label="Line Spacing" style="width:70px;">
-        <option value="1">1.0</option>
-        <option value="1.15">1.15</option>
-        <option value="1.5" selected>1.5</option>
-        <option value="2">2.0</option>
-      </select>
-    </div>
-    <div class="toolbar-divider"></div>
-
-    <!-- Edit Group -->
-    <div class="toolbar-group">
-      <button class="tb-btn" id="btnClearFmt" title="Clear Formatting" aria-label="Clear Formatting">
-        <svg viewBox="0 0 24 24"><path d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z"/></svg>
-      </button>
-      <button class="tb-btn" id="btnHR" title="Insert Divider" aria-label="Insert Horizontal Rule">
-        <svg viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo">
-        <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
-      </button>
-      <button class="tb-btn" data-cmd="redo" title="Redo (Ctrl+Y)" aria-label="Redo">
-        <svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
-      </button>
-    </div>
-
-    <!-- Spacer pushes right -->
-    <div class="toolbar-spacer"></div>
-
-    <!-- Word count -->
+    <button class="tb-btn" id="btnConvert" title="Convert / Import File" aria-label="Convert File"
+      style="width:auto;padding:0 10px;font-size:12px;gap:4px;">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;">
+        <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
+      </svg>
+      Import / Convert
+    </button>
+    <div class="header-spacer"></div>
     <div class="word-count" id="wordCountDisplay" aria-live="polite">Words: 0 &nbsp;|&nbsp; Chars: 0</div>
-
-    <!-- Export PDF -->
     <button id="exportBtn" title="Export as PDF" aria-label="Export as PDF">
       ⬇ Export PDF
     </button>
   </div>
 
-  <!-- ===== CANVAS ===== -->
+  <!-- ===== CKEDITOR CANVAS ===== -->
   <div id="canvas-wrapper">
-    <div id="canvas" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Resume editor canvas"></div>
+    <div id="canvas"></div>
+  </div>
+
+  <!-- ===== CONVERTER MODAL ===== -->
+  <div class="converter-overlay" id="converterOverlay" role="dialog" aria-modal="true" aria-label="File Converter">
+    <div class="converter-panel">
+      <div class="converter-header">
+        <h2>⇄ Convert File</h2>
+        <button class="converter-close" id="converterClose" aria-label="Close converter">✕</button>
+      </div>
+      <div class="converter-body">
+        <div class="drop-zone" id="dropZone" tabindex="0" role="button"
+          aria-label="Drop a file here or click to browse">
+          <div class="drop-zone-icon">📄</div>
+          <div class="drop-zone-text">Drag & drop your file here</div>
+          <div class="drop-zone-text">or click to browse</div>
+          <div class="drop-zone-hint">Supported: PDF, DOCX, HTML, MD, TXT, PPTX, XLSX · Max 20 MB</div>
+          <input type="file" id="fileInput" accept=".pdf,.docx,.html,.htm,.md,.markdown,.txt,.pptx,.xlsx,.xls">
+        </div>
+        <div class="converter-file-info" id="fileInfo" style="display:none;">
+          <span class="file-icon">📎</span>
+          <span class="file-name" id="fileName"></span>
+          <span class="format-badge" id="formatBadge"></span>
+          <span class="file-size" id="fileSize"></span>
+          <button class="remove-file" id="removeFile" title="Remove file" aria-label="Remove file">✕</button>
+        </div>
+        <div class="converter-row" id="formatRow" style="display:none;">
+          <label>Convert to:</label>
+          <select id="outputFormat" aria-label="Output format">
+            <option value="" disabled selected>Select output format...</option>
+          </select>
+        </div>
+        <div class="fidelity-warning" id="fidelityWarning"><span id="fidelityIcon"></span><span id="fidelityMsg"></span>
+        </div>
+        <div class="converter-status" id="converterStatus"></div>
+        <div class="converter-actions" id="converterActions" style="display:none;">
+          <button class="converter-btn secondary" id="btnOpenInEditor" style="display:none;"
+            aria-label="Open in Editor">📝 Open in Editor</button>
+          <button class="converter-btn primary" id="btnConvertNow" disabled aria-label="Convert and Download">⬇ Convert
+            & Download</button>
+        </div>
+        <div class="history-section" id="historySection" style="display:none;">
+          <h3>Recent Conversions</h3>
+          <div class="history-list" id="historyList"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ===== STATUS BAR ===== -->
@@ -497,22 +1104,17 @@
       'use strict';
 
       // --- DOM references ---
-      const canvas      = document.getElementById('canvas');
-      const fontFamily   = document.getElementById('fontFamily');
-      const fontSize     = document.getElementById('fontSize');
-      const textColor    = document.getElementById('textColor');
-      const colorBar     = document.getElementById('colorBar');
-      const lineSpacing  = document.getElementById('lineSpacing');
-      const exportBtn    = document.getElementById('exportBtn');
-      const wordCountEl  = document.getElementById('wordCountDisplay');
-      const statusWords  = document.getElementById('statusWords');
-      const statusChars  = document.getElementById('statusChars');
-      const saveStatus   = document.getElementById('saveStatus');
-      const statusTime   = document.getElementById('statusTime');
-      const btnClearFmt  = document.getElementById('btnClearFmt');
-      const btnHR        = document.getElementById('btnHR');
+      const canvasEl = document.getElementById('canvas');
+      const exportBtn = document.getElementById('exportBtn');
+      const wordCountEl = document.getElementById('wordCountDisplay');
+      const statusWords = document.getElementById('statusWords');
+      const statusChars = document.getElementById('statusChars');
+      const saveStatus = document.getElementById('saveStatus');
+      const statusTime = document.getElementById('statusTime');
 
       const STORAGE_KEY = 'resumeEditor_content';
+      let editorInstance = null;
+      let hasUnsavedChanges = false;
 
       // --- Utility: Debounce ---
       function debounce(fn, ms) {
@@ -523,146 +1125,26 @@
         };
       }
 
-      // --- Formatting commands ---
-      function execCmd(cmd, value = null) {
-        document.execCommand(cmd, false, value);
-        canvas.focus();
-        updateActiveStates();
-        scheduleSave();
-      }
-
-      // Toolbar command buttons (data-cmd)
-      document.querySelectorAll('.tb-btn[data-cmd]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          execCmd(btn.dataset.cmd);
-        });
-      });
-
-      // Font family
-      fontFamily.addEventListener('change', () => {
-        execCmd('fontName', fontFamily.value);
-      });
-
-      // Font size — use the workaround from PRD
-      function setFontSize(ptValue) {
-        ptValue = Math.max(8, Math.min(72, parseInt(ptValue, 10) || 12));
-        fontSize.value = ptValue;
-        document.execCommand('fontSize', false, '7');
-        const fontEls = canvas.querySelectorAll('font[size="7"]');
-        fontEls.forEach(el => {
-          el.removeAttribute('size');
-          el.style.fontSize = `${ptValue}pt`;
-        });
-        canvas.focus();
-        scheduleSave();
-      }
-
-      fontSize.addEventListener('change', () => setFontSize(fontSize.value));
-      fontSize.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); setFontSize(fontSize.value); }
-        if (e.key === 'ArrowUp') { e.preventDefault(); setFontSize(parseInt(fontSize.value, 10) + 1); }
-        if (e.key === 'ArrowDown') { e.preventDefault(); setFontSize(parseInt(fontSize.value, 10) - 1); }
-      });
-
-      // Text colour
-      textColor.addEventListener('input', () => {
-        colorBar.style.background = textColor.value;
-        execCmd('foreColor', textColor.value);
-      });
-
-      // Line spacing
-      lineSpacing.addEventListener('change', () => {
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-        // Apply to selected block-level elements
-        let node = sel.anchorNode;
-        while (node && node !== canvas) {
-          if (node.nodeType === 1 && ['P','DIV','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'].includes(node.tagName)) {
-            node.style.lineHeight = lineSpacing.value;
-            break;
-          }
-          node = node.parentNode;
-        }
-        // If no block found, apply to canvas
-        if (!node || node === canvas) {
-          canvas.style.lineHeight = lineSpacing.value;
-        }
-        canvas.focus();
-        scheduleSave();
-      });
-
-      // Clear formatting
-      btnClearFmt.addEventListener('click', (e) => {
-        e.preventDefault();
-        execCmd('removeFormat');
-      });
-
-      // Insert horizontal rule
-      btnHR.addEventListener('click', (e) => {
-        e.preventDefault();
-        execCmd('insertHorizontalRule');
-      });
-
-      // --- Keyboard shortcuts ---
-      canvas.addEventListener('keydown', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-          switch (e.key.toLowerCase()) {
-            case 'b': e.preventDefault(); execCmd('bold'); break;
-            case 'i': e.preventDefault(); execCmd('italic'); break;
-            case 'u': e.preventDefault(); execCmd('underline'); break;
-          }
-        }
-      });
-
-      // --- Active state detection ---
-      const toggleCmds = ['bold', 'italic', 'underline', 'strikeThrough', 'insertUnorderedList', 'insertOrderedList'];
-
-      function updateActiveStates() {
-        document.querySelectorAll('.tb-btn[data-cmd]').forEach(btn => {
-          const cmd = btn.dataset.cmd;
-          if (toggleCmds.includes(cmd)) {
-            const active = document.queryCommandState(cmd);
-            btn.classList.toggle('active', active);
-            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-          }
-        });
-
-        // Update font family dropdown to reflect current context
-        try {
-          const currentFont = document.queryCommandValue('fontName');
-          if (currentFont) {
-            const clean = currentFont.replace(/['"]/g, '');
-            for (let opt of fontFamily.options) {
-              if (opt.value.toLowerCase() === clean.toLowerCase()) {
-                fontFamily.value = opt.value;
-                break;
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      // Update on selection change
-      document.addEventListener('selectionchange', debounce(updateActiveStates, 50));
-
       // --- Word & Character Count ---
-      function updateWordCount() {
-        const text = canvas.innerText || '';
-        const trimmed = text.trim();
-        const words = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length;
-        const chars = trimmed.length;
+      function updateWordCount(w, c) {
+        const words = w || 0, chars = c || 0;
         wordCountEl.textContent = `Words: ${words.toLocaleString()}  |  Chars: ${chars.toLocaleString()}`;
         statusWords.textContent = `Words: ${words.toLocaleString()}`;
         statusChars.textContent = `Characters: ${chars.toLocaleString()}`;
       }
 
-      // --- Persistence ---
-      let hasUnsavedChanges = false;
+      // --- Status time ---
+      function updateStatusTime() {
+        const now = new Date();
+        statusTime.textContent = now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+          + '  ' + now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      }
 
+      // --- Save helper ---
       function saveContent() {
+        if (!editorInstance) return;
         try {
-          localStorage.setItem(STORAGE_KEY, canvas.innerHTML);
+          localStorage.setItem(STORAGE_KEY, editorInstance.getData());
           hasUnsavedChanges = false;
           saveStatus.textContent = 'Saved ✓';
           saveStatus.classList.add('saved');
@@ -673,76 +1155,150 @@
           console.warn('localStorage save failed:', e);
         }
       }
+      const scheduleSave = debounce(saveContent, 300);
 
-      const scheduleSave = debounce(() => {
-        saveContent();
-      }, 300);
+      // --- beforeunload guard ---
+      window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) { e.preventDefault(); e.returnValue = ''; }
+      });
 
-      function loadContent() {
+      // --- CKEditor 5 Initialization ---
+      // Super-build: NO destructuring, NO plugins array
+      // Everything is pre-bundled — just configure toolbar
+      CKEDITOR.ClassicEditor.create(document.getElementById('canvas'), {
+        removePlugins: [
+          // Avoid CloudServices required errors
+          'CKBox', 'CKFinder', 'EasyImage', 'CKBoxUtils', 'CKBoxEditing', 'CKBoxImageEditEditing', 'CKBoxImageEditUI', 'CKBoxImageEdit', 'CKBoxUploadAdapter', 'CloudServices', 'CloudServicesCore', 'CKFinderUploadAdapter',
+
+          // Avoid AI Assistant causing "model" read-only lock due to no license key
+          'AIAssistant', 'OpenAITextAdapter', 'AIAssistantEditing', 'AIAssistantUI', 'AIAdapter',
+
+          // Remove Restricted Editing Mode to ensure open input
+          'RestrictedEditingMode', 'RestrictedEditingModeEditing', 'RestrictedEditingModeUI',
+          'StandardEditingMode', 'StandardEditingModeEditing', 'StandardEditingModeUI',
+
+          // Collaboration features
+          'RealTimeCollaborativeComments', 'RealTimeCollaborativeTrackChanges', 'RealTimeCollaborativeRevisionHistory',
+          'PresenceList', 'Comments', 'TrackChanges', 'TrackChangesData', 'RevisionHistory',
+
+          // Other premium features
+          'ExportPdf', 'ExportWord', 'ImportWord', 'Pagination', 'WProofreader', 'MathType', 'SlashCommand',
+          'Template', 'DocumentOutline', 'FormatPainter', 'TableOfContents', 'PasteFromOfficeEnhanced', 'CaseChange',
+          'MultiLevelList', 'MultiLevelListEditing', 'MultiLevelListUI'
+        ],
+        toolbar: {
+          items: [
+            'heading', '|',
+            'fontFamily', 'fontSize', '|',
+            'bold', 'italic', 'underline', 'strikethrough', '|',
+            'fontColor', 'fontBackgroundColor', '|',
+            'alignment', '|',
+            'bulletedList', 'numberedList', 'indent', 'outdent', '|',
+            'insertTable', 'horizontalLine', 'blockQuote', 'link', '|',
+            'removeFormat', 'undo', 'redo'
+          ],
+          shouldNotGroupWhenFull: false
+        },
+        fontSize: {
+          options: [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48],
+          supportAllValues: true
+        },
+        fontFamily: {
+          options: [
+            'default',
+            'Georgia, serif',
+            'Times New Roman, Times, serif',
+            'Arial, Helvetica, sans-serif',
+            'Calibri, sans-serif',
+            'Verdana, Geneva, sans-serif',
+            'Courier New, Courier, monospace',
+          ],
+          supportAllValues: true
+        },
+        table: {
+          contentToolbar: ['tableColumn', 'tableRow', 'mergeTableCells']
+        },
+        heading: {
+          options: [
+            { model: 'paragraph', title: 'Normal', class: 'ck-heading_paragraph' },
+            { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+            { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+            { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+          ]
+        },
+        language: 'en',
+      }).then(editor => {
+        editorInstance = editor;
+        window._ckEditor = editor; // expose for debugging
+
+        // Load saved content
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          canvas.innerHTML = saved;
+          editor.setData(saved);
           saveStatus.textContent = 'Loaded ✓';
           saveStatus.classList.add('saved');
         }
-        updateWordCount();
+
+        // Auto-save on change
+        editor.model.document.on('change:data', () => {
+          hasUnsavedChanges = true;
+          saveStatus.textContent = 'Saving...';
+          saveStatus.classList.remove('saved');
+          scheduleSave();
+        });
+
+        // Word count plugin
+        const wc = editor.plugins.get('WordCount');
+        wc.on('update', (evt, stats) => {
+          updateWordCount(stats.words, stats.characters);
+        });
+
         updateStatusTime();
-      }
-
-      // Save on input
-      canvas.addEventListener('input', () => {
-        hasUnsavedChanges = true;
-        saveStatus.textContent = 'Saving...';
-        saveStatus.classList.remove('saved');
-        scheduleSave();
-        updateWordCount();
+        editor.editing.view.focus();
+      }).catch(err => {
+        console.error('CKEditor init error:', err);
+        canvasEl.innerHTML = '<p style="color:red;padding:20px;">Editor failed to load. Please refresh the page.</p>';
       });
 
-      // beforeunload guard
-      window.addEventListener('beforeunload', (e) => {
-        if (hasUnsavedChanges) {
-          e.preventDefault();
-          e.returnValue = '';
-        }
-      });
-
-      // --- Status time ---
-      function updateStatusTime() {
-        const now = new Date();
-        statusTime.textContent = now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-          + '  ' + now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-      }
-
-      // --- PDF Export ---
+      // --- PDF Export (reads from CKEditor) ---
       exportBtn.addEventListener('click', () => {
         if (typeof html2pdf === 'undefined') {
           alert('PDF library is still loading. Please wait a moment and try again.');
           return;
         }
+        if (!editorInstance) { alert('Editor not ready yet.'); return; }
 
         exportBtn.textContent = '⏳ Exporting...';
         exportBtn.disabled = true;
 
-        const clone = canvas.cloneNode(true);
-        clone.removeAttribute('contenteditable');
-        clone.style.boxShadow = 'none';
-        clone.style.borderRadius = '0';
-        clone.style.animation = 'none';
+        const htmlContent = editorInstance.getData();
+        const container = document.createElement('div');
+        container.innerHTML = htmlContent;
+        container.style.cssText = `
+          font-family: Georgia, serif;
+          font-size: 12pt;
+          line-height: 1.6;
+          color: #333;
+          background: #fff;
+          padding: 40px 60px;
+          max-width: 820px;
+        `;
+        document.body.appendChild(container);
 
-        const options = {
-          margin:     [15, 15, 15, 15],
-          filename:   'my-resume.pdf',
-          image:      { type: 'jpeg', quality: 0.98 },
+        html2pdf().set({
+          margin: [15, 15, 15, 15],
+          filename: 'my-resume.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, backgroundColor: '#FFFFFF' },
-          jsPDF:      { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        html2pdf().set(options).from(clone).save()
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(container).save()
           .then(() => {
+            document.body.removeChild(container);
             exportBtn.textContent = '✓ Exported!';
             setTimeout(() => { exportBtn.textContent = '⬇ Export PDF'; exportBtn.disabled = false; }, 2000);
           })
           .catch((err) => {
+            document.body.removeChild(container);
             console.error('PDF export error:', err);
             exportBtn.textContent = '⬇ Export PDF';
             exportBtn.disabled = false;
@@ -750,21 +1306,559 @@
           });
       });
 
-      // --- Initialise ---
-      window.addEventListener('DOMContentLoaded', () => {
-        loadContent();
-        updateActiveStates();
-        colorBar.style.background = textColor.value;
-        // Set initial line spacing on canvas
-        canvas.style.lineHeight = lineSpacing.value;
+
+
+      // ========== FILE CONVERTER MODULE ==========
+      const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+
+      // DOM refs for converter
+      const converterOverlay = document.getElementById('converterOverlay');
+      const converterClose = document.getElementById('converterClose');
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const fileInfoEl = document.getElementById('fileInfo');
+      const fileNameEl = document.getElementById('fileName');
+      const formatBadge = document.getElementById('formatBadge');
+      const fileSizeEl = document.getElementById('fileSize');
+      const removeFileBtn = document.getElementById('removeFile');
+      const formatRow = document.getElementById('formatRow');
+      const outputFormat = document.getElementById('outputFormat');
+      const fidelityWarning = document.getElementById('fidelityWarning');
+      const fidelityIcon = document.getElementById('fidelityIcon');
+      const fidelityMsg = document.getElementById('fidelityMsg');
+      const converterStatus = document.getElementById('converterStatus');
+      const converterActions = document.getElementById('converterActions');
+      const btnConvertNow = document.getElementById('btnConvertNow');
+      const btnOpenInEditor = document.getElementById('btnOpenInEditor');
+      const btnConvert = document.getElementById('btnConvert');
+      const historySection = document.getElementById('historySection');
+      const historyList = document.getElementById('historyList');
+
+      let currentFile = null;
+      let detectedFormat = null;
+      let lastConvertedBlob = null;
+      let lastConvertedHTML = null;
+      let conversionHistory = [];
+
+      // --- Format detection ---
+      const FORMAT_MAP = {
+        'application/pdf': 'pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+        'text/html': 'html', 'text/markdown': 'md', 'text/plain': 'txt',
+      };
+      const EXT_MAP = {
+        '.pdf': 'pdf', '.docx': 'docx', '.pptx': 'pptx', '.xlsx': 'xlsx', '.xls': 'xlsx',
+        '.html': 'html', '.htm': 'html', '.md': 'md', '.markdown': 'md', '.txt': 'txt',
+      };
+
+      function detectFormat(file) {
+        const byMime = FORMAT_MAP[file.type];
+        if (byMime) return byMime;
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        return EXT_MAP[ext] || null;
+      }
+
+      // --- Valid outputs per input ---
+      const VALID_OUTPUTS = {
+        pdf: ['html', 'md', 'txt'],
+        docx: ['pdf', 'html', 'md', 'txt'],
+        html: ['pdf', 'docx', 'md', 'txt'],
+        md: ['pdf', 'docx', 'html', 'txt'],
+        txt: ['pdf', 'docx', 'html', 'md'],
+        pptx: ['html', 'md', 'txt'],
+        xlsx: ['html', 'md', 'txt'],
+      };
+      const FORMAT_LABELS = {
+        pdf: 'PDF', docx: 'DOCX', html: 'HTML', md: 'Markdown', txt: 'Plain Text',
+        pptx: 'PPTX', xlsx: 'XLSX',
+      };
+
+      // --- Fidelity warnings ---
+      const FIDELITY_WARNINGS = {
+        'pdf→html': { level: 'yellow', msg: 'Layout may differ from original. Complex formatting and images may not convert accurately.' },
+        'pdf→md': { level: 'yellow', msg: 'Markdown conversion is text-only. Tables, columns, and images are not preserved.' },
+        'docx→md': { level: 'yellow', msg: 'Complex formatting (tables, footnotes, custom styles) may be simplified.' },
+        'pptx→html': { level: 'yellow', msg: 'Slide animations, transitions, and media are not preserved.' },
+        'pptx→md': { level: 'yellow', msg: 'Slide animations, transitions, and media are not preserved.' },
+        'pptx→txt': { level: 'yellow', msg: 'Slide animations, transitions, and media are not preserved.' },
+        'txt→docx': { level: 'blue', msg: 'Plain text will be formatted with default typography. No original styling to preserve.' },
+        'txt→html': { level: 'blue', msg: 'Plain text will be wrapped in paragraph tags.' },
+        'txt→md': { level: 'blue', msg: 'Plain text is valid Markdown as-is.' },
+      };
+
+      // --- Output MIME types ---
+      const OUTPUT_MIMES = {
+        pdf: 'application/pdf',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        html: 'text/html', md: 'text/markdown', txt: 'text/plain', csv: 'text/csv',
+      };
+
+      // --- Conversion helper functions ---
+      async function mammothToHTML(file) {
+        const ab = await file.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer: ab }, {
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+            "b => strong", "i => em",
+          ]
+        });
+        if (result.messages.length) console.warn('Mammoth warnings:', result.messages);
+        return result.value;
+      }
+
+      async function mammothToText(file) {
+        const ab = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: ab });
+        return result.value;
+      }
+
+      function _htmlToMarkdown(htmlString) {
+        const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' });
+        try { if (turndownPluginGfm) td.use(turndownPluginGfm.gfm); } catch (e) { }
+        return td.turndown(htmlString);
+      }
+
+      function _htmlToDocxBlob(htmlString) {
+        const fullDoc = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;}</style></head><body>' + htmlString + '</body></html>';
+        return htmlDocx.asBlob(fullDoc, { orientation: 'portrait', margins: { top: 720, right: 720, bottom: 720, left: 720 } });
+      }
+
+      function _htmlToText(htmlString) {
+        const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+        return doc.body.textContent || doc.body.innerText || '';
+      }
+
+      async function _htmlToPDFBlob(htmlString) {
+        const container = document.createElement('div');
+        container.innerHTML = htmlString;
+        container.style.fontFamily = 'Georgia, serif';
+        container.style.fontSize = '12pt';
+        container.style.lineHeight = '1.6';
+        container.style.color = '#333';
+        container.style.background = '#fff';
+        container.style.padding = '40px';
+        document.body.appendChild(container);
+        const blob = await html2pdf().set({
+          margin: [15, 15, 15, 15],
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#FFFFFF' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(container).outputPdf('blob');
+        document.body.removeChild(container);
+        return blob;
+      }
+
+      function _markdownToHTML(mdString) {
+        return marked.parse(mdString);
+      }
+
+      function _markdownToText(mdString) {
+        return mdString.replace(/[#*_~`>\-\[\]()!|]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+      async function _pdfToText(file) {
+        const ab = await file.arrayBuffer();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map(item => item.str).join(' ');
+          fullText += `\n--- Page ${i} ---\n${pageText}\n`;
+        }
+        return fullText;
+      }
+
+      async function _pdfToHTML(file) {
+        const ab = await file.arrayBuffer();
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        let html = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          // Group text items into lines by Y position (within 2px tolerance)
+          const lines = [];
+          let currentLine = [];
+          let lastY = null;
+          content.items.forEach(item => {
+            if (!item.str.trim()) return;
+            const y = Math.round(item.transform[5]);
+            if (lastY === null || Math.abs(y - lastY) < 3) {
+              currentLine.push(item);
+            } else {
+              if (currentLine.length) lines.push(currentLine);
+              currentLine = [item];
+            }
+            lastY = y;
+          });
+          if (currentLine.length) lines.push(currentLine);
+          // Compute average font height for relative heading detection
+          const allHeights = content.items.filter(it => it.height > 0).map(it => it.height);
+          const avgHeight = allHeights.length ? allHeights.reduce((a, b) => a + b, 0) / allHeights.length : 12;
+          // Convert lines to HTML paragraphs
+          lines.forEach(line => {
+            const text = line.map(it => it.str).join(' ').trim();
+            if (!text) return;
+            const lineHeight = Math.max(...line.map(it => it.height || 0));
+            const isBold = line.some(it => it.fontName && it.fontName.toLowerCase().includes('bold'));
+            if (lineHeight > avgHeight * 1.6 || (isBold && lineHeight > avgHeight * 1.2)) {
+              html += `<h2>${text}</h2>`;
+            } else if (lineHeight > avgHeight * 1.3) {
+              html += `<h3>${text}</h3>`;
+            } else {
+              html += `<p>${text}</p>`;
+            }
+          });
+        }
+        return html || '<p>No text content found. This may be a scanned PDF.</p>';
+      }
+
+      function _textToHTML(text) {
+        const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const lines = escaped.split('\n');
+        return lines.map(l => l.trim() ? `<p>${l}</p>` : '<br>').join('\n');
+      }
+
+      function _textToMarkdown(text) { return text; }
+
+      async function _pptxToHTML(file) {
+        const ab = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(ab);
+        let html = '<div class="pptx-slides">';
+        let slideNum = 1;
+        while (true) {
+          const slideFile = zip.file(`ppt/slides/slide${slideNum}.xml`);
+          if (!slideFile) break;
+          const xml = await slideFile.async('text');
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xml, 'text/xml');
+          const texts = doc.getElementsByTagName('a:t');
+          html += `<div class="slide"><h3>Slide ${slideNum}</h3>`;
+          for (let t of texts) html += `<p>${t.textContent}</p>`;
+          html += '</div><hr>';
+          slideNum++;
+        }
+        html += '</div>';
+        return html;
+      }
+
+      async function _pptxToText(file) {
+        const ab = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(ab);
+        let text = '';
+        let slideNum = 1;
+        while (true) {
+          const slideFile = zip.file(`ppt/slides/slide${slideNum}.xml`);
+          if (!slideFile) break;
+          const xml = await slideFile.async('text');
+          const doc = new DOMParser().parseFromString(xml, 'text/xml');
+          const texts = doc.getElementsByTagName('a:t');
+          text += `\n--- Slide ${slideNum} ---\n`;
+          for (let t of texts) text += t.textContent + '\n';
+          slideNum++;
+        }
+        return text;
+      }
+
+      async function _xlsxToHTML(file) {
+        const ab = await file.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array' });
+        let html = '';
+        wb.SheetNames.forEach(name => {
+          const ws = wb.Sheets[name];
+          html += `<h3>${name}</h3>` + XLSX.utils.sheet_to_html(ws);
+        });
+        return html;
+      }
+
+      async function _xlsxToCSV(file) {
+        const ab = await file.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array' });
+        let csv = '';
+        wb.SheetNames.forEach(name => {
+          csv += `--- ${name} ---\n` + XLSX.utils.sheet_to_csv(wb.Sheets[name]) + '\n\n';
+        });
+        return csv;
+      }
+
+      // --- Master pipeline ---
+      const PIPELINE = {
+        'docx→html': async (f) => mammothToHTML(f),
+        'docx→txt': async (f) => mammothToText(f),
+        'docx→md': async (f) => { const h = await mammothToHTML(f); return _htmlToMarkdown(h); },
+        'docx→pdf': async (f) => { const h = await mammothToHTML(f); return _htmlToPDFBlob(h); },
+        'html→pdf': async (f) => { const t = await f.text(); return _htmlToPDFBlob(t); },
+        'html→docx': async (f) => { const t = await f.text(); return _htmlToDocxBlob(t); },
+        'html→md': async (f) => { const t = await f.text(); return _htmlToMarkdown(t); },
+        'html→txt': async (f) => { const t = await f.text(); return _htmlToText(t); },
+        'md→html': async (f) => { const t = await f.text(); return _markdownToHTML(t); },
+        'md→pdf': async (f) => { const t = await f.text(); return _htmlToPDFBlob(_markdownToHTML(t)); },
+        'md→docx': async (f) => { const t = await f.text(); return _htmlToDocxBlob(_markdownToHTML(t)); },
+        'md→txt': async (f) => { const t = await f.text(); return _markdownToText(t); },
+        'txt→html': async (f) => { const t = await f.text(); return _textToHTML(t); },
+        'txt→pdf': async (f) => { const t = await f.text(); return _htmlToPDFBlob(_textToHTML(t)); },
+        'txt→docx': async (f) => { const t = await f.text(); return _htmlToDocxBlob(_textToHTML(t)); },
+        'txt→md': async (f) => { const t = await f.text(); return _textToMarkdown(t); },
+        'pdf→txt': async (f) => _pdfToText(f),
+        'pdf→html': async (f) => _pdfToHTML(f),
+        'pdf→md': async (f) => { const h = await _pdfToHTML(f); return _htmlToMarkdown(h); },
+        'pptx→html': async (f) => _pptxToHTML(f),
+        'pptx→txt': async (f) => _pptxToText(f),
+        'pptx→md': async (f) => { const h = await _pptxToHTML(f); return _htmlToMarkdown(h); },
+        'xlsx→html': async (f) => _xlsxToHTML(f),
+        'xlsx→txt': async (f) => _xlsxToCSV(f),
+        'xlsx→md': async (f) => { const h = await _xlsxToHTML(f); return _htmlToMarkdown(h); },
+      };
+
+      // --- Download helper ---
+      function triggerDownload(blob, filename, mimeType) {
+        const b = (blob instanceof Blob) ? blob : new Blob([blob], { type: mimeType });
+        const url = URL.createObjectURL(b);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      }
+
+      // --- Modal open/close ---
+      function openConverter() {
+        converterOverlay.classList.add('open');
+        dropZone.focus();
+        document.addEventListener('keydown', converterKeyHandler);
+      }
+      function closeConverter() {
+        converterOverlay.classList.remove('open');
+        document.removeEventListener('keydown', converterKeyHandler);
+        if (editorInstance) editorInstance.editing.view.focus();
+      }
+      function converterKeyHandler(e) {
+        if (e.key === 'Escape') closeConverter();
+      }
+
+      btnConvert.addEventListener('click', openConverter);
+      converterClose.addEventListener('click', closeConverter);
+      converterOverlay.addEventListener('click', (e) => { if (e.target === converterOverlay) closeConverter(); });
+
+      // --- Drag and drop ---
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+      dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault(); dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) handleFileSelect(e.dataTransfer.files[0]);
+      });
+      fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFileSelect(fileInput.files[0]); });
+
+      // --- Remove file ---
+      removeFileBtn.addEventListener('click', resetConverter);
+
+      function resetConverter() {
+        currentFile = null; detectedFormat = null; lastConvertedBlob = null; lastConvertedHTML = null;
+        fileInput.value = '';
+        dropZone.style.display = '';
+        fileInfoEl.style.display = 'none';
+        formatRow.style.display = 'none';
+        converterActions.style.display = 'none';
+        btnOpenInEditor.style.display = 'none';
+        fidelityWarning.className = 'fidelity-warning';
+        converterStatus.className = 'converter-status'; converterStatus.textContent = '';
+        outputFormat.innerHTML = '<option value="" disabled selected>Select output format...</option>';
+        btnConvertNow.disabled = true;
+        btnConvertNow.innerHTML = '⬇ Convert & Download';
+      }
+
+      // --- Handle file selection ---
+      async function handleFileSelect(file) {
+        // Size check
+        if (file.size > MAX_FILE_SIZE) {
+          converterStatus.className = 'converter-status error';
+          converterStatus.textContent = `File too large (${formatFileSize(file.size)}). Maximum allowed: 20 MB.`;
+          return;
+        }
+        const fmt = detectFormat(file);
+        if (!fmt) {
+          converterStatus.className = 'converter-status error';
+          converterStatus.textContent = 'Unsupported file format. Supported: PDF, DOCX, HTML, MD, TXT, PPTX, XLSX.';
+          return;
+        }
+        currentFile = file; detectedFormat = fmt;
+        converterStatus.className = 'converter-status'; converterStatus.textContent = '';
+        // Show file info
+        dropZone.style.display = 'none';
+        fileInfoEl.style.display = 'flex';
+        fileNameEl.textContent = file.name;
+        formatBadge.textContent = FORMAT_LABELS[fmt] || fmt.toUpperCase();
+        fileSizeEl.textContent = formatFileSize(file.size);
+
+        // AUTO-OPEN: Convert to HTML and load into editor immediately
+        const toHtmlRoute = `${fmt}→html`;
+        const toHtmlPipeline = PIPELINE[toHtmlRoute];
+
+        if (fmt === 'html') {
+          // Already HTML — load directly
+          converterStatus.className = 'converter-status success';
+          converterStatus.textContent = 'Loading into editor...';
+          const htmlContent = await file.text();
+          if (editorInstance) { editorInstance.setData(htmlContent); }
+          addToHistory(file.name, fmt, 'html');
+          setTimeout(() => closeConverter(), 400);
+          return;
+        }
+
+        if (toHtmlPipeline) {
+          // Show converting state
+          converterStatus.className = 'converter-status success';
+          converterStatus.textContent = 'Converting and loading into editor...';
+          try {
+            let htmlResult = await toHtmlPipeline(file);
+            // For md output, parse to HTML for the canvas
+            if (fmt === 'md' && typeof marked !== 'undefined') {
+              htmlResult = marked.parse(htmlResult);
+            }
+            if (editorInstance) { editorInstance.setData(htmlResult); }
+            addToHistory(file.name, fmt, 'html');
+            converterStatus.textContent = `Loaded ${FORMAT_LABELS[fmt]} into editor!`;
+            setTimeout(() => closeConverter(), 600);
+            return;
+          } catch (err) {
+            console.error('Auto-load error:', err);
+            converterStatus.className = 'converter-status error';
+            converterStatus.textContent = `Auto-load failed: ${err.message}. Use manual conversion below.`;
+            // Fall through to show manual conversion UI
+          }
+        }
+
+        // Fallback: show manual conversion UI for formats without HTML route
+        const outputs = VALID_OUTPUTS[fmt] || [];
+        outputFormat.innerHTML = '<option value="" disabled selected>Select output format...</option>';
+        outputs.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o; opt.textContent = FORMAT_LABELS[o] || o.toUpperCase();
+          outputFormat.appendChild(opt);
+        });
+        formatRow.style.display = 'flex';
+        converterActions.style.display = 'flex';
+        btnConvertNow.disabled = true;
+        btnOpenInEditor.style.display = 'none';
+      }
+
+      // --- Output format change ---
+      outputFormat.addEventListener('change', () => {
+        const outFmt = outputFormat.value;
+        btnConvertNow.disabled = !outFmt;
+        btnConvertNow.innerHTML = '⬇ Convert & Download';
+        converterStatus.className = 'converter-status'; converterStatus.textContent = '';
+        btnOpenInEditor.style.display = 'none';
+        lastConvertedBlob = null; lastConvertedHTML = null;
+        // Fidelity warning
+        const route = `${detectedFormat}→${outFmt}`;
+        const warn = FIDELITY_WARNINGS[route];
+        if (warn) {
+          fidelityWarning.className = `fidelity-warning ${warn.level} visible`;
+          fidelityIcon.textContent = warn.level === 'yellow' ? '⚠' : 'ℹ';
+          fidelityMsg.textContent = warn.msg;
+        } else {
+          fidelityWarning.className = 'fidelity-warning';
+        }
       });
 
-      // Focus canvas on page load
-      window.addEventListener('load', () => {
-        canvas.focus();
+      // --- Convert button ---
+      btnConvertNow.addEventListener('click', async () => {
+        const outFmt = outputFormat.value;
+        if (!currentFile || !detectedFormat || !outFmt) return;
+        const route = `${detectedFormat}→${outFmt}`;
+        const pipeline = PIPELINE[route];
+        if (!pipeline) {
+          converterStatus.className = 'converter-status error';
+          converterStatus.textContent = `Conversion route ${route} is not supported.`;
+          return;
+        }
+        // Converting state
+        btnConvertNow.disabled = true;
+        btnConvertNow.innerHTML = '<span class="converter-spinner"></span> Converting...';
+        converterStatus.className = 'converter-status'; converterStatus.textContent = '';
+        try {
+          const result = await pipeline(currentFile);
+          // Determine blob and filename
+          const baseName = currentFile.name.replace(/\.[^.]+$/, '');
+          const ext = outFmt === 'md' ? '.md' : `.${outFmt}`;
+          const outName = baseName + ext;
+          const mime = OUTPUT_MIMES[outFmt] || 'application/octet-stream';
+          if (result instanceof Blob) {
+            lastConvertedBlob = result;
+            triggerDownload(result, outName, mime);
+          } else {
+            lastConvertedBlob = new Blob([result], { type: mime });
+            triggerDownload(result, outName, mime);
+          }
+          // Success state
+          btnConvertNow.innerHTML = '✓ Downloaded!';
+          converterStatus.className = 'converter-status success';
+          converterStatus.textContent = `Successfully converted to ${FORMAT_LABELS[outFmt]}!`;
+          setTimeout(() => { btnConvertNow.innerHTML = '⬇ Convert & Download'; btnConvertNow.disabled = false; }, 2500);
+          // Show Open in Editor for HTML/MD output
+          if (outFmt === 'html' || outFmt === 'md') {
+            lastConvertedHTML = (typeof result === 'string') ? result : await result.text();
+            btnOpenInEditor.style.display = '';
+          }
+          // Add to history
+          addToHistory(currentFile.name, detectedFormat, outFmt);
+        } catch (err) {
+          console.error('Conversion error:', err);
+          converterStatus.className = 'converter-status error';
+          converterStatus.textContent = `Conversion failed: ${err.message || 'Unknown error'}. Please try again.`;
+          btnConvertNow.innerHTML = '⬇ Convert & Download';
+          btnConvertNow.disabled = false;
+        }
       });
+
+      // --- Open in Editor ---
+      btnOpenInEditor.addEventListener('click', () => {
+        if (!lastConvertedHTML) return;
+        let htmlContent = lastConvertedHTML;
+        // If it's markdown, convert to HTML first for the editor
+        if (outputFormat.value === 'md' && typeof marked !== 'undefined') {
+          htmlContent = marked.parse(lastConvertedHTML);
+        }
+        if (editorInstance) { editorInstance.setData(htmlContent); }
+        closeConverter();
+      });
+
+      // --- Conversion history ---
+      function addToHistory(fileName, fromFmt, toFmt) {
+        const entry = {
+          name: fileName,
+          from: FORMAT_LABELS[fromFmt] || fromFmt.toUpperCase(),
+          to: FORMAT_LABELS[toFmt] || toFmt.toUpperCase(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        conversionHistory.unshift(entry);
+        if (conversionHistory.length > 10) conversionHistory.pop();
+        renderHistory();
+      }
+      function renderHistory() {
+        if (!conversionHistory.length) { historySection.style.display = 'none'; return; }
+        historySection.style.display = '';
+        historyList.innerHTML = conversionHistory.map(h =>
+          `<div class="history-item"><span class="h-name">${h.name}</span><span class="h-route">${h.from} → ${h.to}</span><span class="h-time">${h.time}</span></div>`
+        ).join('');
+      }
 
     })();
   </script>
 </body>
+
 </html>
