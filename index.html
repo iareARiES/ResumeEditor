@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume Editor — Browser-Native Rich Text Editor</title>
+  <meta name="description" content="A zero-dependency, browser-native rich text editor for creating and exporting professional resumes as PDF. No server, no login, no install.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <style>
+    /* === Design Tokens === */
+    :root {
+      --dark: #1A1A2E;
+      --dark-lighter: #252542;
+      --accent: #C0392B;
+      --accent-hover: #E74C3C;
+      --paper: #F9F7F2;
+      --ink: #333333;
+      --muted: #CCCCCC;
+      --muted-dim: #666666;
+      --font-ui: 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+      --font-canvas: Georgia, 'Times New Roman', serif;
+      --radius: 5px;
+      --shadow: 0 8px 40px rgba(0,0,0,0.18);
+      --toolbar-height: 56px;
+    }
+
+    /* === Reset & Base === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background: #0F0F1A;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* === Toolbar === */
+    #toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
+      background: var(--dark);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      padding: 8px 20px;
+      gap: 6px;
+      flex-wrap: wrap;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      backdrop-filter: blur(12px);
+      min-height: var(--toolbar-height);
+    }
+
+    /* Logo */
+    .toolbar-logo {
+      font-weight: 700;
+      font-size: 16px;
+      color: #fff;
+      letter-spacing: -0.5px;
+      white-space: nowrap;
+      padding-right: 6px;
+      user-select: none;
+    }
+    .toolbar-logo span { color: var(--accent); }
+
+    /* Divider */
+    .toolbar-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(255,255,255,0.12);
+      margin: 0 4px;
+      flex-shrink: 0;
+    }
+
+    /* Toolbar groups */
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Buttons */
+    .tb-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .tb-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .tb-btn:active { transform: scale(0.93); }
+    .tb-btn.active { background: var(--accent); color: #fff; }
+    .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .tb-btn svg { width: 16px; height: 16px; fill: currentColor; pointer-events: none; }
+
+    /* Selects & inputs */
+    .tb-select, .tb-input {
+      height: 34px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.06);
+      color: #ddd;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      padding: 0 8px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    .tb-select:hover, .tb-input:hover { border-color: rgba(255,255,255,0.2); }
+    .tb-select:focus, .tb-input:focus { border-color: var(--accent); outline: none; }
+    .tb-select option { background: var(--dark); color: #ddd; }
+
+    #fontFamily { width: 130px; }
+    #fontSize { width: 56px; text-align: center; }
+
+    /* Color picker wrapper */
+    .color-wrapper {
+      position: relative;
+      width: 34px;
+      height: 34px;
+    }
+    .color-wrapper input[type="color"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      border: none;
+    }
+    .color-swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      color: var(--muted);
+      pointer-events: none;
+      transition: all 0.15s;
+    }
+    .color-wrapper:hover .color-swatch { background: rgba(255,255,255,0.08); color: #fff; }
+    .color-swatch svg { width: 16px; height: 16px; fill: currentColor; }
+    .color-swatch .underline-bar {
+      position: absolute;
+      bottom: 5px;
+      left: 8px;
+      right: 8px;
+      height: 3px;
+      border-radius: 2px;
+      background: #ff0000;
+    }
+
+    /* Spacer */
+    .toolbar-spacer { flex: 1; min-width: 10px; }
+
+    /* Word count */
+    .word-count {
+      color: var(--muted-dim);
+      font-size: 11px;
+      white-space: nowrap;
+      padding: 0 8px;
+      user-select: none;
+    }
+
+    /* Export button */
+    #exportBtn {
+      height: 36px;
+      padding: 0 20px;
+      border: none;
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+    #exportBtn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(192,57,43,0.4); }
+    #exportBtn:active { transform: translateY(0) scale(0.97); }
+    #exportBtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+    /* === Canvas === */
+    #canvas-wrapper {
+      width: 100%;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px 60px;
+    }
+
+    #canvas {
+      width: 100%;
+      max-width: 820px;
+      min-height: calc(100vh - var(--toolbar-height) - 120px);
+      padding: 60px 60px 80px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--font-canvas);
+      font-size: 12pt;
+      line-height: 1.6;
+      border-radius: 4px;
+      box-shadow: var(--shadow);
+      outline: none;
+      position: relative;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      transition: box-shadow 0.2s ease;
+    }
+    #canvas:focus {
+      box-shadow: var(--shadow), 0 0 0 2px var(--accent);
+    }
+    #canvas:empty::before {
+      content: 'Start writing your resume here...';
+      color: #999;
+      pointer-events: none;
+      font-style: italic;
+    }
+
+    /* Canvas typography defaults */
+    #canvas h1, #canvas h2, #canvas h3 { color: var(--ink); margin-bottom: 0.3em; }
+    #canvas ul, #canvas ol { padding-left: 24px; }
+    #canvas li { margin-bottom: 2px; }
+    #canvas hr { border: none; border-top: 1.5px solid #ccc; margin: 16px 0; }
+
+    /* === Status Bar === */
+    #statusbar {
+      width: 100%;
+      max-width: 820px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--muted-dim);
+      user-select: none;
+      gap: 12px;
+    }
+    .status-left { display: flex; gap: 16px; }
+    .status-right { display: flex; gap: 12px; align-items: center; }
+    .save-indicator { transition: opacity 0.3s; }
+    .save-indicator.saved { color: #27ae60; }
+
+    /* === Print Styles === */
+    @media print {
+      body { background: #fff; }
+      #toolbar, #statusbar { display: none !important; }
+      #canvas-wrapper { padding: 0; }
+      #canvas {
+        max-width: 100%;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+        min-height: auto;
+      }
+    }
+
+    /* === Responsive === */
+    @media (max-width: 900px) {
+      #toolbar {
+        padding: 6px 12px;
+        gap: 4px;
+      }
+      .toolbar-logo { font-size: 14px; }
+      #fontFamily { width: 100px; }
+      #canvas { padding: 40px 30px 60px; }
+    }
+
+    @media (max-width: 600px) {
+      .mobile-warning {
+        display: block !important;
+      }
+      #toolbar { gap: 3px; padding: 6px 8px; }
+      .toolbar-divider { display: none; }
+      #fontFamily { width: 80px; }
+      #canvas { padding: 24px 18px 40px; font-size: 11pt; }
+    }
+
+    .mobile-warning {
+      display: none;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 13px;
+      width: 100%;
+    }
+
+    /* Tooltip on buttons */
+    .tb-btn[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      top: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111;
+      color: #eee;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 200;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    /* Subtle animation on page load */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    #canvas { animation: fadeInUp 0.5s ease-out; }
+  </style>
+</head>
+<body>
+
+  <!-- Mobile Warning -->
+  <div class="mobile-warning">
+    ⚠ This editor is optimised for desktop. Some toolbar features may be limited on small screens.
+  </div>
+
+  <!-- ===== TOOLBAR ===== -->
+  <div id="toolbar" role="toolbar" aria-label="Formatting toolbar">
+
+    <!-- Logo -->
+    <div class="toolbar-logo">Resume<span>Editor</span></div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Font Group -->
+    <div class="toolbar-group">
+      <select id="fontFamily" class="tb-select" title="Font Family" aria-label="Font Family">
+        <option value="Georgia">Georgia</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Garamond">Garamond</option>
+        <option value="Palatino Linotype">Palatino</option>
+        <option value="Arial">Arial</option>
+        <option value="Helvetica">Helvetica</option>
+        <option value="Calibri">Calibri</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Trebuchet MS">Trebuchet MS</option>
+        <option value="Tahoma">Tahoma</option>
+        <option value="Courier New">Courier New</option>
+        <option value="DM Sans">DM Sans</option>
+      </select>
+      <input type="number" id="fontSize" class="tb-input" value="12" min="8" max="72" step="1" title="Font Size (pt)" aria-label="Font Size">
+    </div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Style Group -->
+    <div class="toolbar-group">
+      <button class="tb-btn" id="btnBold" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79 0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79 0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
+      </button>
+      <button class="tb-btn" id="btnItalic" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M10 4v3h2.21l-3.42 8H6v3h8v-3h-2.21l3.42-8H18V4z"/></svg>
+      </button>
+      <button class="tb-btn" id="btnUnderline" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
+      </button>
+      <button class="tb-btn" id="btnStrike" data-cmd="strikeThrough" title="Strikethrough" aria-label="Strikethrough" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/></svg>
+      </button>
+    </div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Colour -->
+    <div class="toolbar-group">
+      <div class="color-wrapper" title="Text Colour">
+        <div class="color-swatch" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M11 2 5.5 16h2.25l1.12-3h6.25l1.12 3h2.25L13 2h-2zm-1.38 9L12 4.67 14.38 11H9.62z"/></svg>
+          <div class="underline-bar" id="colorBar"></div>
+        </div>
+        <input type="color" id="textColor" value="#333333" aria-label="Text Colour">
+      </div>
+    </div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Alignment Group -->
+    <div class="toolbar-group">
+      <button class="tb-btn" data-cmd="justifyLeft" title="Align Left" aria-label="Align Left">
+        <svg viewBox="0 0 24 24"><path d="M15 15H3v2h12v-2zm0-8H3v2h12V7zM3 13h18v-2H3v2zm0 8h18v-2H3v2zM3 3v2h18V3H3z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="justifyCenter" title="Align Centre" aria-label="Align Centre">
+        <svg viewBox="0 0 24 24"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="justifyRight" title="Align Right" aria-label="Align Right">
+        <svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="justifyFull" title="Justify" aria-label="Justify">
+        <svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-6v2h18V3H3z"/></svg>
+      </button>
+    </div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Lists & Indent -->
+    <div class="toolbar-group">
+      <button class="tb-btn" data-cmd="insertUnorderedList" title="Bullet List" aria-label="Bullet List" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="insertOrderedList" title="Numbered List" aria-label="Numbered List" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="indent" title="Increase Indent" aria-label="Increase Indent">
+        <svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="outdent" title="Decrease Indent" aria-label="Decrease Indent">
+        <svg viewBox="0 0 24 24"><path d="M11 17h10v-2H11v2zm-8-5 4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"/></svg>
+      </button>
+    </div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Spacing -->
+    <div class="toolbar-group">
+      <select id="lineSpacing" class="tb-select" title="Line Spacing" aria-label="Line Spacing" style="width:70px;">
+        <option value="1">1.0</option>
+        <option value="1.15">1.15</option>
+        <option value="1.5" selected>1.5</option>
+        <option value="2">2.0</option>
+      </select>
+    </div>
+    <div class="toolbar-divider"></div>
+
+    <!-- Edit Group -->
+    <div class="toolbar-group">
+      <button class="tb-btn" id="btnClearFmt" title="Clear Formatting" aria-label="Clear Formatting">
+        <svg viewBox="0 0 24 24"><path d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z"/></svg>
+      </button>
+      <button class="tb-btn" id="btnHR" title="Insert Divider" aria-label="Insert Horizontal Rule">
+        <svg viewBox="0 0 24 24"><path d="M2 11h20v2H2z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo">
+        <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+      </button>
+      <button class="tb-btn" data-cmd="redo" title="Redo (Ctrl+Y)" aria-label="Redo">
+        <svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+      </button>
+    </div>
+
+    <!-- Spacer pushes right -->
+    <div class="toolbar-spacer"></div>
+
+    <!-- Word count -->
+    <div class="word-count" id="wordCountDisplay" aria-live="polite">Words: 0 &nbsp;|&nbsp; Chars: 0</div>
+
+    <!-- Export PDF -->
+    <button id="exportBtn" title="Export as PDF" aria-label="Export as PDF">
+      ⬇ Export PDF
+    </button>
+  </div>
+
+  <!-- ===== CANVAS ===== -->
+  <div id="canvas-wrapper">
+    <div id="canvas" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Resume editor canvas"></div>
+  </div>
+
+  <!-- ===== STATUS BAR ===== -->
+  <div id="statusbar">
+    <div class="status-left">
+      <span id="statusWords">Words: 0</span>
+      <span id="statusChars">Characters: 0</span>
+    </div>
+    <div class="status-right">
+      <span class="save-indicator" id="saveStatus">Ready</span>
+      <span id="statusTime"></span>
+    </div>
+  </div>
+
+  <!-- ===== JAVASCRIPT ===== -->
+  <script>
+    (() => {
+      'use strict';
+
+      // --- DOM references ---
+      const canvas      = document.getElementById('canvas');
+      const fontFamily   = document.getElementById('fontFamily');
+      const fontSize     = document.getElementById('fontSize');
+      const textColor    = document.getElementById('textColor');
+      const colorBar     = document.getElementById('colorBar');
+      const lineSpacing  = document.getElementById('lineSpacing');
+      const exportBtn    = document.getElementById('exportBtn');
+      const wordCountEl  = document.getElementById('wordCountDisplay');
+      const statusWords  = document.getElementById('statusWords');
+      const statusChars  = document.getElementById('statusChars');
+      const saveStatus   = document.getElementById('saveStatus');
+      const statusTime   = document.getElementById('statusTime');
+      const btnClearFmt  = document.getElementById('btnClearFmt');
+      const btnHR        = document.getElementById('btnHR');
+
+      const STORAGE_KEY = 'resumeEditor_content';
+
+      // --- Utility: Debounce ---
+      function debounce(fn, ms) {
+        let timer;
+        return (...args) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn(...args), ms);
+        };
+      }
+
+      // --- Formatting commands ---
+      function execCmd(cmd, value = null) {
+        document.execCommand(cmd, false, value);
+        canvas.focus();
+        updateActiveStates();
+        scheduleSave();
+      }
+
+      // Toolbar command buttons (data-cmd)
+      document.querySelectorAll('.tb-btn[data-cmd]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          execCmd(btn.dataset.cmd);
+        });
+      });
+
+      // Font family
+      fontFamily.addEventListener('change', () => {
+        execCmd('fontName', fontFamily.value);
+      });
+
+      // Font size — use the workaround from PRD
+      function setFontSize(ptValue) {
+        ptValue = Math.max(8, Math.min(72, parseInt(ptValue, 10) || 12));
+        fontSize.value = ptValue;
+        document.execCommand('fontSize', false, '7');
+        const fontEls = canvas.querySelectorAll('font[size="7"]');
+        fontEls.forEach(el => {
+          el.removeAttribute('size');
+          el.style.fontSize = `${ptValue}pt`;
+        });
+        canvas.focus();
+        scheduleSave();
+      }
+
+      fontSize.addEventListener('change', () => setFontSize(fontSize.value));
+      fontSize.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); setFontSize(fontSize.value); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); setFontSize(parseInt(fontSize.value, 10) + 1); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); setFontSize(parseInt(fontSize.value, 10) - 1); }
+      });
+
+      // Text colour
+      textColor.addEventListener('input', () => {
+        colorBar.style.background = textColor.value;
+        execCmd('foreColor', textColor.value);
+      });
+
+      // Line spacing
+      lineSpacing.addEventListener('change', () => {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        // Apply to selected block-level elements
+        let node = sel.anchorNode;
+        while (node && node !== canvas) {
+          if (node.nodeType === 1 && ['P','DIV','LI','H1','H2','H3','H4','H5','H6','BLOCKQUOTE'].includes(node.tagName)) {
+            node.style.lineHeight = lineSpacing.value;
+            break;
+          }
+          node = node.parentNode;
+        }
+        // If no block found, apply to canvas
+        if (!node || node === canvas) {
+          canvas.style.lineHeight = lineSpacing.value;
+        }
+        canvas.focus();
+        scheduleSave();
+      });
+
+      // Clear formatting
+      btnClearFmt.addEventListener('click', (e) => {
+        e.preventDefault();
+        execCmd('removeFormat');
+      });
+
+      // Insert horizontal rule
+      btnHR.addEventListener('click', (e) => {
+        e.preventDefault();
+        execCmd('insertHorizontalRule');
+      });
+
+      // --- Keyboard shortcuts ---
+      canvas.addEventListener('keydown', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          switch (e.key.toLowerCase()) {
+            case 'b': e.preventDefault(); execCmd('bold'); break;
+            case 'i': e.preventDefault(); execCmd('italic'); break;
+            case 'u': e.preventDefault(); execCmd('underline'); break;
+          }
+        }
+      });
+
+      // --- Active state detection ---
+      const toggleCmds = ['bold', 'italic', 'underline', 'strikeThrough', 'insertUnorderedList', 'insertOrderedList'];
+
+      function updateActiveStates() {
+        document.querySelectorAll('.tb-btn[data-cmd]').forEach(btn => {
+          const cmd = btn.dataset.cmd;
+          if (toggleCmds.includes(cmd)) {
+            const active = document.queryCommandState(cmd);
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+          }
+        });
+
+        // Update font family dropdown to reflect current context
+        try {
+          const currentFont = document.queryCommandValue('fontName');
+          if (currentFont) {
+            const clean = currentFont.replace(/['"]/g, '');
+            for (let opt of fontFamily.options) {
+              if (opt.value.toLowerCase() === clean.toLowerCase()) {
+                fontFamily.value = opt.value;
+                break;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Update on selection change
+      document.addEventListener('selectionchange', debounce(updateActiveStates, 50));
+
+      // --- Word & Character Count ---
+      function updateWordCount() {
+        const text = canvas.innerText || '';
+        const trimmed = text.trim();
+        const words = trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length;
+        const chars = trimmed.length;
+        wordCountEl.textContent = `Words: ${words.toLocaleString()}  |  Chars: ${chars.toLocaleString()}`;
+        statusWords.textContent = `Words: ${words.toLocaleString()}`;
+        statusChars.textContent = `Characters: ${chars.toLocaleString()}`;
+      }
+
+      // --- Persistence ---
+      let hasUnsavedChanges = false;
+
+      function saveContent() {
+        try {
+          localStorage.setItem(STORAGE_KEY, canvas.innerHTML);
+          hasUnsavedChanges = false;
+          saveStatus.textContent = 'Saved ✓';
+          saveStatus.classList.add('saved');
+          updateStatusTime();
+        } catch (e) {
+          saveStatus.textContent = 'Save failed';
+          saveStatus.classList.remove('saved');
+          console.warn('localStorage save failed:', e);
+        }
+      }
+
+      const scheduleSave = debounce(() => {
+        saveContent();
+      }, 300);
+
+      function loadContent() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          canvas.innerHTML = saved;
+          saveStatus.textContent = 'Loaded ✓';
+          saveStatus.classList.add('saved');
+        }
+        updateWordCount();
+        updateStatusTime();
+      }
+
+      // Save on input
+      canvas.addEventListener('input', () => {
+        hasUnsavedChanges = true;
+        saveStatus.textContent = 'Saving...';
+        saveStatus.classList.remove('saved');
+        scheduleSave();
+        updateWordCount();
+      });
+
+      // beforeunload guard
+      window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
+
+      // --- Status time ---
+      function updateStatusTime() {
+        const now = new Date();
+        statusTime.textContent = now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+          + '  ' + now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      }
+
+      // --- PDF Export ---
+      exportBtn.addEventListener('click', () => {
+        if (typeof html2pdf === 'undefined') {
+          alert('PDF library is still loading. Please wait a moment and try again.');
+          return;
+        }
+
+        exportBtn.textContent = '⏳ Exporting...';
+        exportBtn.disabled = true;
+
+        const clone = canvas.cloneNode(true);
+        clone.removeAttribute('contenteditable');
+        clone.style.boxShadow = 'none';
+        clone.style.borderRadius = '0';
+        clone.style.animation = 'none';
+
+        const options = {
+          margin:     [15, 15, 15, 15],
+          filename:   'my-resume.pdf',
+          image:      { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#FFFFFF' },
+          jsPDF:      { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(options).from(clone).save()
+          .then(() => {
+            exportBtn.textContent = '✓ Exported!';
+            setTimeout(() => { exportBtn.textContent = '⬇ Export PDF'; exportBtn.disabled = false; }, 2000);
+          })
+          .catch((err) => {
+            console.error('PDF export error:', err);
+            exportBtn.textContent = '⬇ Export PDF';
+            exportBtn.disabled = false;
+            alert('PDF export failed. Please try again.');
+          });
+      });
+
+      // --- Initialise ---
+      window.addEventListener('DOMContentLoaded', () => {
+        loadContent();
+        updateActiveStates();
+        colorBar.style.background = textColor.value;
+        // Set initial line spacing on canvas
+        canvas.style.lineHeight = lineSpacing.value;
+      });
+
+      // Focus canvas on page load
+      window.addEventListener('load', () => {
+        canvas.focus();
+      });
+
+    })();
+  </script>
+</body>
+</html>
